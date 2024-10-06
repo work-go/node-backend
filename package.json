@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "NODE_ENV=development docker-compose up && nodemon --watch './src/schemas/shared/**/*' --ext 'ts' --exec 'npm run gen-types'",
-    "docker:dev": "NODE_ENV=development nodemon --watch './src/**/*' --ext 'ts' --exec 'npm run compile",
+    "docker:dev": "NODE_ENV=development nodemon --watch './src/**/*' --ext 'ts' --exec 'npm run compile'",
     "build": "NODE_ENV=development docker-compose build",
     "compile": "ts-node src/app.ts",
     "gen-types": "ts-node scripts/generate-types.ts"
@@ -23,6 +23,7 @@
     "zod-to-ts": "^1.2.0"
   },
   "dependencies": {
+    "fastify": "^5.0.0",
     "ts-node": "^10.9.2",
     "zod": "^3.23.8"
   }
