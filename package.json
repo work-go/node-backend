@@ -1,0 +1,30 @@
+{
+  "name": "workgo-node-backend",
+  "version": "1.0.0",
+  "main": "src/app.ts",
+  "engines": {
+    "node": "22.1.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently \"npm run watch:start\" \"npm run watch:gen-types\"",
+    "watch:start": "NODE_ENV=development nodemon --watch './src/**/*' --ext 'ts' --exec 'npm run start'",
+    "watch:gen-types": "nodemon --watch './src/schemas/shared/**/*' --ext 'ts' --exec 'npm run gen-types'",
+    "start": "NODE_ENV=production ts-node src/app.ts",
+    "gen-types": "ts-node scripts/generate-types.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "concurrently": "^9.0.1",
+    "nodemon": "^3.1.7",
+    "zod-to-ts": "^1.2.0"
+  },
+  "dependencies": {
+    "ts-node": "^10.9.2",
+    "zod": "^3.23.8"
+  }
+}
