@@ -4,7 +4,7 @@ import { ZodType } from "zod";
 import { zodToTs, createTypeAlias, printNode } from "zod-to-ts";
 
 const BACKEND_DIR = "./src/schemas/shared";
-const FRONTEND_DIR = "../gojo-frontend/src/types/generated";
+const FRONTEND_DIR = "../react-dashboard/src/types/generated";
 
 // Create output directory if it doesn't exist
 if (!fs.existsSync(FRONTEND_DIR)) {

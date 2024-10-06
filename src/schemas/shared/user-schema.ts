@@ -7,5 +7,5 @@ export const UserSchema = z.object({
 export const ProductSchema = z.object({
   title: z.string(),
   title2: z.string(),
-  title3: z.string(),
+  title4: z.string(),
 });

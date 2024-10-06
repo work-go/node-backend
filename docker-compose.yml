@@ -1,0 +1,32 @@
+version: "3"
+services:
+  backend:
+    container_name: workgo-node-backend
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/usr/src/app # Mount the current directory into /usr/src/app inside the container
+      - /usr/src/app/node_modules # Prevent overwriting node_modules inside the container
+    # environment:
+    #   NODE_ENV: ${NODE_ENV:-development} # Dynamic NODE_ENV
+    #   POSTGRES_HOST: postgres # Hostname of the PostgreSQL service
+    #   POSTGRES_USER: ${POSTGRES_USER:-admin} # Default PostgreSQL user
+    #   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password} # Default password
+    #   POSTGRES_DB: ${POSTGRES_DB:-myapp} # Default database name
+    # depends_on:
+    #   - postgres # Ensures PostgreSQL starts before Node.js app
+    command: >
+      sh -c "if [ \"$NODE_ENV\" = 'development' ]; then npm run docker:dev; else npm start; fi"
+
+  # postgres:
+  #   image: postgres:13 # PostgreSQL version 13
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_USER:-admin}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+  #     POSTGRES_DB: ${POSTGRES_DB:-myapp}
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data # Persist database data
+
+# volumes:
+#   pgdata:
