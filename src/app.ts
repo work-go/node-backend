@@ -1,14 +1,13 @@
 import fastify from "fastify";
+import { prisma } from "./lib/prisma";
 
 const app = fastify({ logger: true });
 
 export const logger = app.log;
 
-app.get("/", (request, reply) => {
-  return "Hello World";
+app.get("/", async (request, reply) => {
+  return await prisma.user.findMany();
 });
-
-// app.post("/login")
 
 app.get("/users", () => {
   return "Users";
