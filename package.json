@@ -6,8 +6,8 @@
     "node": "22.1.0"
   },
   "scripts": {
-    "dev": "NODE_ENV=development docker-compose up",
-    "docker:dev": "concurrently \"NODE_ENV=development nodemon --watch './src/**/*' --ext 'ts' --exec 'npm run compile'\" \"nodemon --watch './src/schemas/shared/**/*' --ext 'ts' --exec 'npm run gen-types'\"",
+    "dev": "NODE_ENV=development docker-compose up && nodemon --watch './src/schemas/shared/**/*' --ext 'ts' --exec 'npm run gen-types'",
+    "docker:dev": "NODE_ENV=development nodemon --watch './src/**/*' --ext 'ts' --exec 'npm run compile",
     "build": "NODE_ENV=development docker-compose build",
     "compile": "ts-node src/app.ts",
     "gen-types": "ts-node scripts/generate-types.ts"
