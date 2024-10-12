@@ -7,11 +7,8 @@ services:
       - "3000:3000"
     volumes:
       - .:/usr/src/app # Mount the current directory into /usr/src/app inside the container
-    environment:
-      NODE_ENV: ${NODE_ENV} # Dynamic NODE_ENV
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+    env_file:
+      - .env
     depends_on:
       - postgres # Ensures PostgreSQL starts before Node.js app
     command: >
@@ -21,10 +18,8 @@ services:
     image: postgres:13 # PostgreSQL version 13
     ports:
       - "5432:5432" # Map port 5432 on the host to port 5432 on the container
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+    env_file:
+      - .env
     volumes:
       - pgdata:/var/lib/postgresql/data # Persist database data
 
