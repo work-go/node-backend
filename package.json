@@ -2,15 +2,17 @@
   "name": "workgo-node-backend",
   "version": "1.0.0",
   "main": "src/app.ts",
+  "module": "",
   "engines": {
     "node": "22.1.0"
   },
+  "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development docker-compose up && nodemon --watch './src/schemas/shared/**/*' --ext 'ts' --exec 'npm run gen-types'",
     "docker:dev": "NODE_ENV=development nodemon --watch './src/**/*' --ext 'ts' --exec 'npm run compile'",
     "build": "NODE_ENV=development docker-compose build --no-cache",
-    "compile": "ts-node src/app.ts",
-    "gen-types": "ts-node scripts/generate-types.ts"
+    "compile": "tsx src/app.ts",
+    "gen-types": "tsx scripts/generate-types.ts"
   },
   "keywords": [],
   "author": "",
@@ -22,12 +24,18 @@
     "concurrently": "^9.0.1",
     "nodemon": "^3.1.7",
     "prisma": "^5.20.0",
+    "tsx": "^4.19.1",
     "zod-to-ts": "^1.2.0"
   },
   "dependencies": {
+    "@fastify/cookie": "^10.0.1",
+    "@lucia-auth/adapter-prisma": "^4.0.1",
+    "@node-rs/argon2": "^2.0.0",
     "@prisma/client": "^5.20.0",
     "fastify": "^5.0.0",
-    "ts-node": "^10.9.2",
+    "fastify-type-provider-zod": "^4.0.2",
+    "lucia": "^3.2.0",
+    "oslo": "^1.2.1",
     "zod": "^3.23.8"
   }
 }

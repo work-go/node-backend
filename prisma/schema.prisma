@@ -8,8 +8,16 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+  id             String    @id
+  email          String    @unique
+  createdAt      DateTime  @default(now())
+  hashedPassword String
+  sessions       Session[]
+}
+
+model Session {
+  id      String   @id
+  userId  String
+  expiresAt DateTime
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
