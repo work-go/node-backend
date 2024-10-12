@@ -1,8 +1,9 @@
 import fastify from "fastify";
-import { authRouter } from "./routes/auth-route";
+import { authRouter } from "./routes/v1/public-routes/auth-route";
 import {
   hasZodFastifySchemaValidationErrors,
   isResponseSerializationError,
+  jsonSchemaTransform,
   serializerCompiler,
   validatorCompiler,
 } from "fastify-type-provider-zod";
@@ -11,6 +12,9 @@ import {
   mapZodIssuesToErrorMessages,
 } from "./lib/error-handling";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import fastifySwagger from "@fastify/swagger";
+import fastifySwaggerUI from "@fastify/swagger-ui";
+import fastifyCookie from "@fastify/cookie";
 
 export const app = fastify({ logger: true });
 
@@ -18,10 +22,10 @@ export const logger = app.log;
 
 const bootstrap = async () => {
   try {
+    app.register(fastifyCookie, { secret: process.env.COOKIE_SECRET });
+
     app.setValidatorCompiler(validatorCompiler);
     app.setSerializerCompiler(serializerCompiler);
-
-    await app.after();
 
     app.setErrorHandler((err, req, reply) => {
       console.log(
@@ -57,7 +61,23 @@ const bootstrap = async () => {
       });
     });
 
-    app.register(authRouter, { prefix: "/auth" });
+    app.register(fastifySwagger, {
+      openapi: {
+        info: {
+          title: "Work Go API",
+          description: "",
+          version: "1.0.0",
+        },
+        servers: [],
+      },
+      transform: jsonSchemaTransform,
+    });
+
+    app.register(fastifySwaggerUI, {
+      routePrefix: "/documentation",
+    });
+
+    app.register(authRouter, { prefix: "/api/v1/auth" });
 
     await app.ready();
 
