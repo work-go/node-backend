@@ -15,24 +15,20 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUI from "@fastify/swagger-ui";
 import fastifyCookie from "@fastify/cookie";
+import fastifyCors from "@fastify/cors";
 
-export const app = fastify({ logger: true });
+const port = Number(process.env.PORT!);
+
+export const app = fastify();
 
 export const logger = app.log;
 
 const bootstrap = async () => {
   try {
-    app.register(fastifyCookie, { secret: process.env.COOKIE_SECRET });
-
     app.setValidatorCompiler(validatorCompiler);
     app.setSerializerCompiler(serializerCompiler);
 
     app.setErrorHandler((err, req, reply) => {
-      console.log(
-        JSON.stringify(Object.entries(err), null, 4),
-        err instanceof PrismaClientKnownRequestError
-      );
-
       if (hasZodFastifySchemaValidationErrors(err)) {
         return reply.code(400).send({
           message: "Invalid request",
@@ -61,6 +57,13 @@ const bootstrap = async () => {
       });
     });
 
+    app.register(fastifyCors, {
+      origin: process.env.FRONTEND_URL,
+      credentials: true,
+    });
+
+    app.register(fastifyCookie, { secret: process.env.COOKIE_SECRET });
+
     app.register(fastifySwagger, {
       openapi: {
         info: {
@@ -77,14 +80,18 @@ const bootstrap = async () => {
       routePrefix: "/documentation",
     });
 
-    app.register(authRouter, { prefix: "/api/v1/auth" });
+    app.get("/", (request, reply) => {
+      reply.send(`Server running at port ${port}`);
+    });
+
+    app.register(authRouter, { prefix: "/v1/auth" });
 
     await app.ready();
-
-    const dest = await app.listen({ host: "0.0.0.0", port: 3000 });
-    logger.info(`✅ Server listing on ${dest}`);
+    console.log("❕ Starting server, please wait...");
+    const dest = await app.listen({ host: "0.0.0.0", port });
+    console.log(`✅ Server listing on ${dest}`);
   } catch (error) {
-    logger.error(
+    console.log(
       `❗ Failed to start server: ${
         error instanceof Error ? error.message : "Uknown error occured"
       }`

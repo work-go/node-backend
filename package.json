@@ -29,14 +29,17 @@
   },
   "dependencies": {
     "@fastify/cookie": "^10.0.1",
+    "@fastify/cors": "^10.0.1",
     "@fastify/swagger": "^9.2.0",
     "@fastify/swagger-ui": "^5.0.1",
     "@lucia-auth/adapter-prisma": "^4.0.1",
     "@node-rs/argon2": "^2.0.0",
     "@prisma/client": "^5.20.0",
+    "arctic": "^1.9.2",
     "fastify": "^5.0.0",
     "fastify-type-provider-zod": "^4.0.2",
     "lucia": "^3.2.0",
+    "ofetch": "^1.4.1",
     "oslo": "^1.2.1",
     "zod": "^3.23.8"
   }

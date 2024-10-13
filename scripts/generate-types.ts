@@ -13,7 +13,7 @@ if (!fs.existsSync(FRONTEND_DIR)) {
 
 // Function to generate TypeScript types from Zod schemas
 const generateTypes = async (schemaFile: string) => {
-  const zodSchemas = require(path.resolve(schemaFile)); // Import the Zod schemas
+  const zodSchemas = await import(path.resolve(schemaFile)); // Import the Zod schemas
   let combinedTypes = "";
 
   // Iterate over each named export in the schema file

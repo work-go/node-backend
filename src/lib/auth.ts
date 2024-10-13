@@ -2,6 +2,7 @@ import { Lucia } from "lucia";
 import { PrismaAdapter } from "@lucia-auth/adapter-prisma";
 import { prisma } from "./prisma";
 import { z } from "zod";
+import { Google } from "arctic";
 
 export const auth = new Lucia(new PrismaAdapter(prisma.session, prisma.user), {
   sessionCookie: {
@@ -17,6 +18,12 @@ export const auth = new Lucia(new PrismaAdapter(prisma.session, prisma.user), {
     id: session.id,
   }),
 });
+
+export const google = new Google(
+  process.env.OAUTH_GOOGLE_CLIENT_ID!,
+  process.env.OAUTH_GOOGLE_CLIENT_SECRET!,
+  `${process.env.FRONTEND_URL}/auth/google/callback`
+);
 
 export const isValidEmail = (email: string) =>
   z.string().email().safeParse(email).success;

@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const GenericErrorSchema = z.object({
+  message: z.string(),
+});
+
 export const RegisterSchema = z
   .object({
     email: z
@@ -29,4 +33,23 @@ export const LoginSchema = z.object({
     .min(1, "Please enter your email")
     .email("Please enter a valid email"),
   password: z.string(),
+});
+
+export const GoogleLoginResponseSchema = z.object({
+  authorizationUrl: z.string(),
+});
+
+export const GoogleCallbackUserSchema = z.object({
+  sub: z.string(),
+  name: z.string(),
+  given_name: z.string(),
+  family_name: z.string(),
+  picture: z.string(),
+  email: z.string(),
+  email_verified: z.boolean(),
+});
+
+export const GoogleCallbackSearchSchema = z.object({
+  code: z.string(),
+  state: z.string(),
 });
