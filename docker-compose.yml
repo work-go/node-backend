@@ -4,7 +4,7 @@ services:
     container_name: workgo-node-backend
     build: .
     ports:
-      - "3000:3000"
+      - "4000:4000"
     volumes:
       - .:/usr/src/app # Mount the current directory into /usr/src/app inside the container
     env_file:

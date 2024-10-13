@@ -12,6 +12,6 @@ WORKDIR /usr/src/app
 COPY . .
 
 # Expose the port your app runs on
-EXPOSE 3000
+EXPOSE 4000
 
 # The command is managed by docker-compose
