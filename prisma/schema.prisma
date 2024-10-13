@@ -8,16 +8,16 @@ datasource db {
 }
 
 model User {
-  id             String    @id
-  email          String    @unique
-  createdAt      DateTime  @default(now())
+  id           String    @id
+  email        String    @unique
+  createdAt    DateTime  @default(now())
   passwordHash String?
-  sessions       Session[]
+  sessions     Session[]
 }
 
 model Session {
-  id      String   @id
-  userId  String
+  id        String   @id
+  userId    String
   expiresAt DateTime
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

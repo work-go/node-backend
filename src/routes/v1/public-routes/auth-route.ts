@@ -32,10 +32,11 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
         request.body
       );
 
-      reply.setCookie("session", sessionCookie.serialize(), {
-        httpOnly: true,
-        signed: true,
-      });
+      reply.setCookie(
+        sessionCookie.name,
+        sessionCookie.value,
+        sessionCookie.attributes
+      );
 
       reply.send(UserSchema.parse(user));
     }
@@ -51,14 +52,73 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
           request.body
         );
 
-        reply.setCookie("session", sessionCookie.serialize(), {
-          httpOnly: true,
-          signed: true,
-        });
+        reply.setCookie(
+          sessionCookie.name,
+          sessionCookie.value,
+          sessionCookie.attributes
+        );
 
         reply.send(UserSchema.parse(user));
       }
     );
+
+  plugin.withTypeProvider<ZodTypeProvider>().get(
+    "/verify",
+    {
+      schema: {
+        response: {
+          200: UserSchema,
+          503: GenericErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const sessionCookie = request.cookies[auth.sessionCookieName];
+
+      if (!sessionCookie)
+        return reply
+          .status(401)
+          .send({ message: "Please authenticate yourself" });
+
+      const { session, user: sessionUser } = await auth.validateSession(
+        sessionCookie
+      );
+
+      if (!session) {
+        const sessionCookie = auth.createBlankSessionCookie();
+
+        reply.setCookie(
+          sessionCookie.name,
+          sessionCookie.value,
+          sessionCookie.attributes
+        );
+
+        return reply
+          .status(401)
+          .send({ message: "Please authenticate yourself" });
+      }
+
+      if (session.fresh) {
+        const sessionCookie = auth.createSessionCookie(session.id);
+        reply.setCookie(
+          sessionCookie.name,
+          sessionCookie.value,
+          sessionCookie.attributes
+        );
+      }
+
+      const user = await prisma.user.findFirst({
+        where: { email: sessionUser.email },
+      });
+
+      if (!user)
+        return reply
+          .status(401)
+          .send({ message: "Please authenticate yourself" });
+
+      return reply.send(UserSchema.parse(user));
+    }
+  );
 
   plugin
     .withTypeProvider<ZodTypeProvider>()
@@ -68,11 +128,7 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
       async (request, reply) => {
         const state = generateState();
         const codeVerifier = generateCodeVerifier();
-        console.log(
-          "Generated code verifier",
-          codeVerifier,
-          typeof codeVerifier
-        );
+
         const authorizationUrl = await google.createAuthorizationURL(
           state,
           codeVerifier,
@@ -82,11 +138,15 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
         );
 
         reply.setCookie("google_oauth_code_verifier", codeVerifier, {
+          path: "/",
           httpOnly: true,
-          sameSite: "strict",
         });
 
-        reply.send(GoogleLoginResponseSchema.parse({ authorizationUrl }));
+        reply.send(
+          GoogleLoginResponseSchema.parse({
+            authorizationUrl: authorizationUrl.toString(),
+          })
+        );
       }
     );
 
@@ -96,7 +156,6 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
       schema: {
         querystring: GoogleCallbackSearchSchema,
         response: {
-          200: UserSchema,
           401: GenericErrorSchema,
         },
       },
@@ -124,6 +183,7 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
 
       const existingUser = await prisma.user.findFirst({
         where: { email: googleUser.email },
+        select: { id: true },
       });
 
       const createSessionCookieByUserId = async (userId: string) => {
@@ -131,28 +191,30 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
         const session =
           existingSessions.length > 0
             ? existingSessions[0]
-            : await auth.createSession(userId, { id: userId });
+            : await auth.createSession(userId, {});
+
         const sessionCookie = auth.createSessionCookie(session.id);
 
-        reply.setCookie("session", sessionCookie.serialize(), {
-          httpOnly: true,
-          signed: true,
-        });
+        reply.setCookie(
+          sessionCookie.name,
+          sessionCookie.value,
+          sessionCookie.attributes
+        );
       };
 
       if (existingUser) {
         await createSessionCookieByUserId(existingUser.id);
-        return reply.send(UserSchema.parse(existingUser));
+        return reply.send();
       }
 
       const userId = generateIdFromEntropySize(10);
 
-      const user = await prisma.user.create({
+      await prisma.user.create({
         data: { id: userId, email: googleUser.email },
       });
 
       await createSessionCookieByUserId(userId);
-      reply.send(UserSchema.parse(user));
+      reply.send();
     }
   );
 };
