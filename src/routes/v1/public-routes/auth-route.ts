@@ -71,62 +71,11 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
       },
     },
     async (request, reply) => {
-      const sessionToken = request.headers.authorization;
-
-      if (typeof sessionToken !== "string")
-        throw new HttpError("Please authenticate yourself", {
-          statusCode: 401,
-        });
-
-      const jwt = auth.readBearerToken(sessionToken);
-
-      if (!jwt)
-        throw new HttpError("Please authenticate yourself", {
-          statusCode: 401,
-        });
-
-      const { payload } = await validateSessionJwt(jwt).catch((error) => {
-        throw new HttpError(
-          error instanceof Error
-            ? error.message
-            : "Please authenticate yourself",
-          { statusCode: 401 }
-        );
-      });
-
-      const sessionId = (payload as SessionJwt).sessionId;
-
-      if (!sessionId)
-        throw new HttpError("Please authenticate yourself", {
-          statusCode: 401,
-        });
-
-      const { user: sessionUser } = await auth
-        .validateSession(sessionId)
-        .catch((error) => {
-          throw new HttpError(
-            error instanceof Error
-              ? error.message
-              : "Please authenticate yourself",
-            { statusCode: 401 }
-          );
-        });
-
-      if (!sessionUser)
-        throw new HttpError("Please authenticate yourself", {
-          statusCode: 401,
-        });
-
-      const user = await prisma.user.findFirst({
-        where: { email: sessionUser.email },
-      });
-
-      if (!user)
-        throw new HttpError("Please authenticate yourself", {
-          statusCode: 401,
-        });
-
-      return reply.send(UserSchema.parse(user));
+      return reply.send(
+        UserSchema.parse(
+          await AuthController.verifySessionToken(request.headers.authorization)
+        )
+      );
     }
   );
 

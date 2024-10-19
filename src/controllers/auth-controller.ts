@@ -3,7 +3,7 @@ import { prisma } from "../lib/prisma";
 import { hash, verify } from "@node-rs/argon2";
 import { auth } from "../lib/auth";
 import { generateIdFromEntropySize } from "lucia";
-import { createSessionJwt } from "../lib/jwt";
+import { createSessionJwt, validateSessionJwt } from "../lib/jwt";
 import { safeTryAsync } from "../lib/safe-try";
 import { LoginSchema, RegisterSchema } from "../shared/schemas/auth-schema";
 import { HttpError } from "../shared/errors/http-error";
@@ -81,5 +81,62 @@ export class AuthController {
       sessionToken,
       user,
     };
+  }
+
+  public static async verifySessionToken(
+    sessionToken: string | string[] | undefined
+  ) {
+    if (typeof sessionToken !== "string")
+      throw new HttpError("Please authenticate yourself", {
+        statusCode: 401,
+      });
+
+    const jwt = auth.readBearerToken(sessionToken);
+
+    if (!jwt)
+      throw new HttpError("Please authenticate yourself", {
+        statusCode: 401,
+      });
+
+    const { payload } = await validateSessionJwt(jwt).catch((error) => {
+      throw new HttpError(
+        error instanceof Error ? error.message : "Please authenticate yourself",
+        { statusCode: 401 }
+      );
+    });
+
+    const sessionId = (payload as SessionJwt).sessionId;
+
+    if (!sessionId)
+      throw new HttpError("Please authenticate yourself", {
+        statusCode: 401,
+      });
+
+    const { user: sessionUser } = await auth
+      .validateSession(sessionId)
+      .catch((error) => {
+        throw new HttpError(
+          error instanceof Error
+            ? error.message
+            : "Please authenticate yourself",
+          { statusCode: 401 }
+        );
+      });
+
+    if (!sessionUser)
+      throw new HttpError("Please authenticate yourself", {
+        statusCode: 401,
+      });
+
+    const user = await prisma.user.findFirst({
+      where: { email: sessionUser.email },
+    });
+
+    if (!user)
+      throw new HttpError("Please authenticate yourself", {
+        statusCode: 401,
+      });
+
+    return user;
   }
 }
