@@ -14,11 +14,13 @@ import {
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUI from "@fastify/swagger-ui";
-import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
 import { prisma } from "./lib/prisma";
+import { env } from "./lib/env";
+import { HttpError } from "./shared/errors/http-error";
+import { HttpInputError } from "./shared/errors/http-input-error";
 
-const port = Number(process.env.PORT!);
+const port = env.PORT;
 
 export const app = fastify();
 
@@ -52,6 +54,17 @@ const bootstrap = async () => {
           details: mapPrismaErrorToErrorMessages(err),
         });
 
+      if (err instanceof HttpError)
+        return reply.code(err.meta.statusCode).send({
+          message: err.message,
+        });
+
+      if (err instanceof HttpInputError)
+        return reply.code(err.meta.statusCode).send({
+          message: err.message,
+          details: err.meta.details,
+        });
+
       return reply.code(500).send({
         message: "Internal server error",
         error: err,
@@ -59,11 +72,9 @@ const bootstrap = async () => {
     });
 
     app.register(fastifyCors, {
-      origin: process.env.FRONTEND_URL,
+      origin: env.FRONTEND_URL,
       credentials: true,
     });
-
-    app.register(fastifyCookie, { secret: process.env.COOKIE_SECRET });
 
     app.register(fastifySwagger, {
       openapi: {

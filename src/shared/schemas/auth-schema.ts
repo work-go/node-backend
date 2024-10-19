@@ -1,5 +1,5 @@
-import { c } from "ofetch/dist/shared/ofetch.d0b3d489";
 import { z } from "zod";
+import { UserSchema } from "./user-schema";
 
 export const GenericErrorSchema = z.object({
   message: z.string(),
@@ -27,6 +27,11 @@ export const RegisterSchema = z
     message: "Make sure the passwords match",
     path: ["passwordConfirm"],
   });
+
+export const RegisterResponseSchema = z.object({
+  user: UserSchema,
+  sessionToken: z.string(),
+});
 
 export const LoginSchema = z.object({
   email: z

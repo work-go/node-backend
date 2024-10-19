@@ -3,8 +3,13 @@ import { FastifyPluginAsync } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { generateIdFromEntropySize } from "lucia";
 import { ofetch } from "ofetch";
-import { AuthController } from "../../../controllers/auth-controller";
+import { createJWT } from "oslo/jwt";
+import {
+  AuthController,
+  SessionJwt,
+} from "../../../controllers/auth-controller";
 import { auth, google } from "../../../lib/auth";
+import { validateSessionJwt } from "../../../lib/jwt";
 import { prisma } from "../../../lib/prisma";
 import {
   GenericErrorSchema,
@@ -13,11 +18,12 @@ import {
   GoogleCallbackUserSchema,
   GoogleLoginResponseSchema,
   LoginSchema,
+  RegisterResponseSchema,
   RegisterSchema,
-} from "../../../schemas/shared/auth-schema";
-import { UserSchema } from "../../../schemas/shared/user-schema";
-import { createJWT, validateJWT } from "oslo/jwt";
-import { z } from "zod";
+} from "../../../shared/schemas/auth-schema";
+import { UserSchema } from "../../../shared/schemas/user-schema";
+import { safeTryAsync } from "../../../lib/safe-try";
+import { HttpError } from "../../../shared/errors/http-error";
 
 export const authRouter: FastifyPluginAsync = async (plugin) => {
   plugin.withTypeProvider<ZodTypeProvider>().post(
@@ -26,44 +32,33 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
       schema: {
         body: RegisterSchema,
         response: {
-          200: UserSchema,
+          200: RegisterResponseSchema,
         },
       },
     },
     async (request, reply) => {
-      const { user, sessionCookie } = await AuthController.register(
-        request.body
+      reply.send(
+        RegisterResponseSchema.parse(
+          await AuthController.register(request.body)
+        )
       );
-
-      reply.setCookie(
-        sessionCookie.name,
-        sessionCookie.value,
-        sessionCookie.attributes
-      );
-
-      reply.send(UserSchema.parse(user));
     }
   );
 
-  plugin
-    .withTypeProvider<ZodTypeProvider>()
-    .post(
-      "/login",
-      { schema: { body: LoginSchema, response: { 200: UserSchema } } },
-      async (request, reply) => {
-        const { user, sessionCookie } = await AuthController.login(
-          request.body
-        );
-
-        reply.setCookie(
-          sessionCookie.name,
-          sessionCookie.value,
-          sessionCookie.attributes
-        );
-
-        reply.send(UserSchema.parse(user));
-      }
-    );
+  plugin.withTypeProvider<ZodTypeProvider>().post(
+    "/login",
+    {
+      schema: {
+        body: LoginSchema,
+        response: { 200: RegisterResponseSchema },
+      },
+    },
+    async (request, reply) => {
+      reply.send(
+        RegisterResponseSchema.parse(await AuthController.login(request.body))
+      );
+    }
+  );
 
   plugin.withTypeProvider<ZodTypeProvider>().get(
     "/verify",
@@ -76,46 +71,60 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
       },
     },
     async (request, reply) => {
-      const jwt = auth.readBearerToken(
-        request.headers["Authorization"] as string
-      );
+      const sessionToken = request.headers.authorization;
+
+      if (typeof sessionToken !== "string")
+        throw new HttpError("Please authenticate yourself", {
+          statusCode: 401,
+        });
+
+      const jwt = auth.readBearerToken(sessionToken);
 
       if (!jwt)
-        return reply
-          .status(401)
-          .send({ message: "Please authenticate yourself" });
+        throw new HttpError("Please authenticate yourself", {
+          statusCode: 401,
+        });
 
-      /* const { session, user: sessionUser } = await auth.validateSession(
-        sessionCookie
-      ); */
+      const { payload } = await validateSessionJwt(jwt).catch((error) => {
+        throw new HttpError(
+          error instanceof Error
+            ? error.message
+            : "Please authenticate yourself",
+          { statusCode: 401 }
+        );
+      });
 
-      const { payload } = await validateJWT(
-        "HS256",
-        new TextEncoder().encode(process.env.JWT_SECRET),
-        jwt
-      );
-      const sessionId = (payload as any)?.sessionId as undefined | string;
-      if (!sessionId) {
-        return reply
-          .status(401)
-          .send({ message: "Please authenticate yourself" });
-      }
+      const sessionId = (payload as SessionJwt).sessionId;
 
-      const { user: sessionUser } = await auth.validateSession(sessionId);
+      if (!sessionId)
+        throw new HttpError("Please authenticate yourself", {
+          statusCode: 401,
+        });
+
+      const { user: sessionUser } = await auth
+        .validateSession(sessionId)
+        .catch((error) => {
+          throw new HttpError(
+            error instanceof Error
+              ? error.message
+              : "Please authenticate yourself",
+            { statusCode: 401 }
+          );
+        });
 
       if (!sessionUser)
-        return reply
-          .status(401)
-          .send({ message: "Please authenticate yourself" });
+        throw new HttpError("Please authenticate yourself", {
+          statusCode: 401,
+        });
 
       const user = await prisma.user.findFirst({
         where: { email: sessionUser.email },
       });
 
       if (!user)
-        return reply
-          .status(401)
-          .send({ message: "Please authenticate yourself" });
+        throw new HttpError("Please authenticate yourself", {
+          statusCode: 401,
+        });
 
       return reply.send(UserSchema.parse(user));
     }
