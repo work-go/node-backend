@@ -1,4 +1,4 @@
-import fastify from "fastify";
+import fastify, { FastifyError } from "fastify";
 import { authRouter } from "./routes/v1/public-routes/auth-route";
 import {
   hasZodFastifySchemaValidationErrors,
@@ -7,17 +7,17 @@ import {
   serializerCompiler,
   validatorCompiler,
 } from "fastify-type-provider-zod";
-import {
-  mapPrismaErrorToErrorMessages,
-  mapZodIssuesToErrorMessages,
-} from "./lib/error-handling";
+import { mapPrismaErrorToErrorMessages, mapZodIssuesToErrorMessages } from "./lib/error-handling";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUI from "@fastify/swagger-ui";
-import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
+import { prisma } from "./lib/prisma";
+import { env } from "./lib/env";
+import { ValidationError } from "./shared/errors/validation-error";
+import { ServerError } from "./shared/errors/server-error.";
 
-const port = Number(process.env.PORT!);
+const port = env.PORT;
 
 export const app = fastify();
 
@@ -28,41 +28,27 @@ const bootstrap = async () => {
     app.setValidatorCompiler(validatorCompiler);
     app.setSerializerCompiler(serializerCompiler);
 
-    app.setErrorHandler((err, req, reply) => {
-      if (hasZodFastifySchemaValidationErrors(err)) {
-        return reply.code(400).send({
-          message: "Invalid request",
-          details: mapZodIssuesToErrorMessages(
-            err.validation.map((e) => e.params.issue)
-          ),
-        });
-      }
+    app.setErrorHandler((fastifyError, req, reply) => {
+      let error: FastifyError | ValidationError | ServerError = fastifyError;
 
-      if (isResponseSerializationError(err)) {
-        return reply.code(500).send({
-          message: "Invalid response",
-          details: mapZodIssuesToErrorMessages(err.cause.issues),
-        });
-      }
+      if (hasZodFastifySchemaValidationErrors(fastifyError))
+        error = new ValidationError(
+          "Bad request", // TODO: Add dynamic message for every route
+          mapZodIssuesToErrorMessages(fastifyError.validation.map((e) => e.params.issue)),
+        );
 
-      if (err instanceof PrismaClientKnownRequestError)
-        return reply.code(400).send({
-          message: "Invalid request",
-          details: mapPrismaErrorToErrorMessages(err),
-        });
+      if (fastifyError instanceof PrismaClientKnownRequestError)
+        error = new ValidationError("Bad request", mapPrismaErrorToErrorMessages(fastifyError));
 
-      return reply.code(500).send({
-        message: "Internal server error",
-        error: err,
-      });
+      if (isResponseSerializationError(fastifyError)) error = new ServerError("Response schema parsing failed");
+
+      return reply.code(error.statusCode || 500).send(error);
     });
 
     app.register(fastifyCors, {
-      origin: process.env.FRONTEND_URL,
+      origin: env.FRONTEND_URL,
       credentials: true,
     });
-
-    app.register(fastifyCookie, { secret: process.env.COOKIE_SECRET });
 
     app.register(fastifySwagger, {
       openapi: {
@@ -75,6 +61,8 @@ const bootstrap = async () => {
       },
       transform: jsonSchemaTransform,
     });
+
+    console.log(await prisma.user.findMany());
 
     app.register(fastifySwaggerUI, {
       routePrefix: "/documentation",
@@ -91,11 +79,7 @@ const bootstrap = async () => {
     const dest = await app.listen({ host: "0.0.0.0", port });
     console.log(`✅ Server listing on ${dest}`);
   } catch (error) {
-    console.log(
-      `❗ Failed to start server: ${
-        error instanceof Error ? error.message : "Uknown error occured"
-      }`
-    );
+    console.log(`❗ Failed to start server: ${error instanceof Error ? error.message : "Uknown error occured"}`);
   }
 };
 

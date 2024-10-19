@@ -1,10 +1,8 @@
 import fs from "fs";
 import path from "path";
-import { ZodType } from "zod";
-import { zodToTs, createTypeAlias, printNode } from "zod-to-ts";
 
-const BACKEND_DIR = "./src/schemas/shared";
-const FRONTEND_DIR = "../react-dashboard/src/generated/rpc";
+const BACKEND_DIR = "./src/shared";
+const FRONTEND_DIR = "../react-dashboard/src/generated";
 
 // Create output directory if it doesn't exist
 // if (!fs.existsSync(FRONTEND_DIR)) {
