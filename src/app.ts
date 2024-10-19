@@ -62,8 +62,6 @@ const bootstrap = async () => {
       transform: jsonSchemaTransform,
     });
 
-    console.log(await prisma.user.findMany());
-
     app.register(fastifySwaggerUI, {
       routePrefix: "/documentation",
     });
