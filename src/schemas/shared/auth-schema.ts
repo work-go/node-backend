@@ -1,3 +1,4 @@
+import { c } from "ofetch/dist/shared/ofetch.d0b3d489";
 import { z } from "zod";
 
 export const GenericErrorSchema = z.object({
@@ -37,13 +38,14 @@ export const LoginSchema = z.object({
 
 export const GoogleLoginResponseSchema = z.object({
   authorizationUrl: z.string(),
+  codeVerifier: z.string(),
 });
 
 export const GoogleCallbackUserSchema = z.object({
   sub: z.string(),
   name: z.string(),
-  given_name: z.string(),
-  family_name: z.string(),
+  given_name: z.string().optional(),
+  family_name: z.string().optional(),
   picture: z.string(),
   email: z.string(),
   email_verified: z.boolean(),
@@ -53,3 +55,5 @@ export const GoogleCallbackSearchSchema = z.object({
   code: z.string(),
   state: z.string(),
 });
+
+export const GoogleCallbackResponseSchema = z.object({ token: z.string() });

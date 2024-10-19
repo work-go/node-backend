@@ -16,6 +16,7 @@ import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUI from "@fastify/swagger-ui";
 import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
+import { prisma } from "./lib/prisma";
 
 const port = Number(process.env.PORT!);
 
@@ -75,6 +76,8 @@ const bootstrap = async () => {
       },
       transform: jsonSchemaTransform,
     });
+
+    console.log(await prisma.user.findMany());
 
     app.register(fastifySwaggerUI, {
       routePrefix: "/documentation",

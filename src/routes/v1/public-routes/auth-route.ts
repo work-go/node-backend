@@ -8,6 +8,7 @@ import { auth, google } from "../../../lib/auth";
 import { prisma } from "../../../lib/prisma";
 import {
   GenericErrorSchema,
+  GoogleCallbackResponseSchema,
   GoogleCallbackSearchSchema,
   GoogleCallbackUserSchema,
   GoogleLoginResponseSchema,
@@ -15,6 +16,8 @@ import {
   RegisterSchema,
 } from "../../../schemas/shared/auth-schema";
 import { UserSchema } from "../../../schemas/shared/user-schema";
+import { createJWT, validateJWT } from "oslo/jwt";
+import { z } from "zod";
 
 export const authRouter: FastifyPluginAsync = async (plugin) => {
   plugin.withTypeProvider<ZodTypeProvider>().post(
@@ -73,39 +76,37 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
       },
     },
     async (request, reply) => {
-      const sessionCookie = request.cookies[auth.sessionCookieName];
-
-      if (!sessionCookie)
-        return reply
-          .status(401)
-          .send({ message: "Please authenticate yourself" });
-
-      const { session, user: sessionUser } = await auth.validateSession(
-        sessionCookie
+      const jwt = auth.readBearerToken(
+        request.headers["Authorization"] as string
       );
 
-      if (!session) {
-        const sessionCookie = auth.createBlankSessionCookie();
+      if (!jwt)
+        return reply
+          .status(401)
+          .send({ message: "Please authenticate yourself" });
 
-        reply.setCookie(
-          sessionCookie.name,
-          sessionCookie.value,
-          sessionCookie.attributes
-        );
+      /* const { session, user: sessionUser } = await auth.validateSession(
+        sessionCookie
+      ); */
 
+      const { payload } = await validateJWT(
+        "HS256",
+        new TextEncoder().encode(process.env.JWT_SECRET),
+        jwt
+      );
+      const sessionId = (payload as any)?.sessionId as undefined | string;
+      if (!sessionId) {
         return reply
           .status(401)
           .send({ message: "Please authenticate yourself" });
       }
 
-      if (session.fresh) {
-        const sessionCookie = auth.createSessionCookie(session.id);
-        reply.setCookie(
-          sessionCookie.name,
-          sessionCookie.value,
-          sessionCookie.attributes
-        );
-      }
+      const { user: sessionUser } = await auth.validateSession(sessionId);
+
+      if (!sessionUser)
+        return reply
+          .status(401)
+          .send({ message: "Please authenticate yourself" });
 
       const user = await prisma.user.findFirst({
         where: { email: sessionUser.email },
@@ -137,14 +138,15 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
           }
         );
 
-        reply.setCookie("google_oauth_code_verifier", codeVerifier, {
+        /* reply.setCookie("google_oauth_code_verifier", codeVerifier, {
           path: "/",
           httpOnly: true,
-        });
+        }); */
 
         reply.send(
           GoogleLoginResponseSchema.parse({
             authorizationUrl: authorizationUrl.toString(),
+            codeVerifier,
           })
         );
       }
@@ -157,15 +159,29 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
         querystring: GoogleCallbackSearchSchema,
         response: {
           401: GenericErrorSchema,
+          200: GoogleCallbackResponseSchema,
         },
       },
     },
     async (request, reply) => {
+      console.log("entered");
+
       const { code } = request.query;
+      console.log("code", code);
 
-      const codeVerifier = request.cookies["google_oauth_code_verifier"]!;
+      /*       const codeVerifier = request.cookies["google_oauth_code_verifier"]!;
+       */
 
+      const authorizationHeader = request.headers.authorization as string;
+      console.log("authorizationHeader", authorizationHeader);
+
+      const codeVerifier = auth.readBearerToken(authorizationHeader);
+      console.log("codeVerifier", codeVerifier);
+      if (!codeVerifier) {
+        return reply.status(401).send({ message: "Invalid code verifier" });
+      }
       const tokens = await google.validateAuthorizationCode(code, codeVerifier);
+      console.log("tokens", tokens);
 
       const googleUserResponse = await ofetch(
         "https://www.googleapis.com/oauth2/v3/userinfo",
@@ -178,6 +194,8 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
 
       const googleUser = GoogleCallbackUserSchema.parse(googleUserResponse);
 
+      console.log("googleUser", googleUser);
+
       if (!googleUser.email_verified)
         return reply.status(401).send({ message: "Please verify your email" });
 
@@ -186,25 +204,25 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
         select: { id: true },
       });
 
-      const createSessionCookieByUserId = async (userId: string) => {
+      console.log("existingUser", existingUser);
+
+      const createSessionTokenByUserId = async (userId: string) => {
         const existingSessions = await auth.getUserSessions(userId);
         const session =
           existingSessions.length > 0
             ? existingSessions[0]
             : await auth.createSession(userId, {});
 
-        const sessionCookie = auth.createSessionCookie(session.id);
-
-        reply.setCookie(
-          sessionCookie.name,
-          sessionCookie.value,
-          sessionCookie.attributes
+        return createJWT(
+          "HS256",
+          new TextEncoder().encode(process.env.JWT_SECRET),
+          { sessionId: session.id }
         );
       };
 
       if (existingUser) {
-        await createSessionCookieByUserId(existingUser.id);
-        return reply.send();
+        const token = await createSessionTokenByUserId(existingUser.id);
+        return reply.send(GoogleCallbackResponseSchema.parse({ token }));
       }
 
       const userId = generateIdFromEntropySize(10);
@@ -213,8 +231,8 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
         data: { id: userId, email: googleUser.email },
       });
 
-      await createSessionCookieByUserId(userId);
-      reply.send();
+      const token = await createSessionTokenByUserId(userId);
+      reply.send(GoogleCallbackResponseSchema.parse({ token }));
     }
   );
 };
