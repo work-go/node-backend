@@ -20,11 +20,10 @@ export const auth = new Lucia(new PrismaAdapter(prisma.session, prisma.user), {
 export const google = new Google(
   env.OAUTH_GOOGLE_CLIENT_ID,
   env.OAUTH_GOOGLE_CLIENT_SECRET,
-  `${env.FRONTEND_URL}/auth/google/callback`
+  `${env.FRONTEND_URL}/auth/google/callback`,
 );
 
-export const isValidEmail = (email: string) =>
-  z.string().email().safeParse(email).success;
+export const isValidEmail = (email: string) => z.string().email().safeParse(email).success;
 
 // IMPORTANT!
 declare module "lucia" {

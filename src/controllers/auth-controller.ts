@@ -16,30 +16,21 @@ class AuthUtils {
   public static async createSessionToken(userId: string) {
     const existingSessions = await auth.getUserSessions(userId);
 
-    const session =
-      existingSessions.length > 0
-        ? existingSessions[0]
-        : await auth.createSession(userId, { id: userId });
+    const session = existingSessions.length > 0 ? existingSessions[0] : await auth.createSession(userId, { id: userId });
 
     return await createSessionJwt({ sessionId: session.id });
   }
 }
 
 export class AuthController {
-  public static async register({
-    email,
-    password,
-  }: z.infer<typeof RegisterSchema>) {
+  public static async register({ email, password }: z.infer<typeof RegisterSchema>) {
     const passwordHash = await hash(password, {
       memoryCost: 19456,
       timeCost: 2,
       outputLen: 32,
       parallelism: 1,
     }).catch((error) => {
-      throw new HttpError(
-        error instanceof Error ? error.message : "Unable to store password",
-        { statusCode: 401 }
-      );
+      throw new HttpError(error instanceof Error ? error.message : "Unable to store password", { statusCode: 401 });
     });
 
     const userId = generateIdFromEntropySize(10);
@@ -62,8 +53,7 @@ export class AuthController {
       where: { email: email },
     });
 
-    if (!user || !user.passwordHash)
-      throw new Error("Invalid email or password");
+    if (!user || !user.passwordHash) throw new Error("Invalid email or password");
 
     const isValidPassword = await verify(user.passwordHash, password, {
       memoryCost: 19456,
@@ -72,8 +62,7 @@ export class AuthController {
       parallelism: 1,
     });
 
-    if (!isValidPassword)
-      throw new HttpError("Invalid email or password", { statusCode: 401 });
+    if (!isValidPassword) throw new HttpError("Invalid email or password", { statusCode: 401 });
 
     const sessionToken = await AuthUtils.createSessionToken(user.id);
 
@@ -83,26 +72,21 @@ export class AuthController {
     };
   }
 
-  public static async verifySessionToken(
-    sessionToken: string | string[] | undefined
-  ) {
-    if (typeof sessionToken !== "string")
+  public static async verifySessionToken(bearerSessionToken: string | string[] | undefined) {
+    if (typeof bearerSessionToken !== "string")
       throw new HttpError("Please authenticate yourself", {
         statusCode: 401,
       });
 
-    const jwt = auth.readBearerToken(sessionToken);
+    const sessionToken = auth.readBearerToken(bearerSessionToken);
 
-    if (!jwt)
+    if (!sessionToken)
       throw new HttpError("Please authenticate yourself", {
         statusCode: 401,
       });
 
-    const { payload } = await validateSessionJwt(jwt).catch((error) => {
-      throw new HttpError(
-        error instanceof Error ? error.message : "Please authenticate yourself",
-        { statusCode: 401 }
-      );
+    const { payload } = await validateSessionJwt(sessionToken).catch((error) => {
+      throw new HttpError(error instanceof Error ? error.message : "Please authenticate yourself", { statusCode: 401 });
     });
 
     const sessionId = (payload as SessionJwt).sessionId;
@@ -112,16 +96,9 @@ export class AuthController {
         statusCode: 401,
       });
 
-    const { user: sessionUser } = await auth
-      .validateSession(sessionId)
-      .catch((error) => {
-        throw new HttpError(
-          error instanceof Error
-            ? error.message
-            : "Please authenticate yourself",
-          { statusCode: 401 }
-        );
-      });
+    const { user: sessionUser } = await auth.validateSession(sessionId).catch((error) => {
+      throw new HttpError(error instanceof Error ? error.message : "Please authenticate yourself", { statusCode: 401 });
+    });
 
     if (!sessionUser)
       throw new HttpError("Please authenticate yourself", {
@@ -137,6 +114,6 @@ export class AuthController {
         statusCode: 401,
       });
 
-    return user;
+    return { user, sessionToken };
   }
 }

@@ -7,7 +7,7 @@ export class HttpInputError extends HttpError {
       cause?: string;
       statusCode: ErrorStatusCodes;
       details: Record<string, string>;
-    }
+    },
   ) {
     super(message, meta);
     this.name = "HttpInputError";

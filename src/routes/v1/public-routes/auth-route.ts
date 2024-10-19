@@ -1,29 +1,14 @@
-import { generateCodeVerifier, generateState } from "arctic";
 import { FastifyPluginAsync } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
-import { generateIdFromEntropySize } from "lucia";
-import { ofetch } from "ofetch";
-import { createJWT } from "oslo/jwt";
+import { AuthController } from "../../../controllers/auth-controller";
+import { GoogleOauthController } from "../../../controllers/google-oauth-controller";
 import {
-  AuthController,
-  SessionJwt,
-} from "../../../controllers/auth-controller";
-import { auth, google } from "../../../lib/auth";
-import { validateSessionJwt } from "../../../lib/jwt";
-import { prisma } from "../../../lib/prisma";
-import {
-  GenericErrorSchema,
-  GoogleCallbackResponseSchema,
   GoogleCallbackSearchSchema,
-  GoogleCallbackUserSchema,
   GoogleLoginResponseSchema,
   LoginSchema,
   RegisterResponseSchema,
   RegisterSchema,
 } from "../../../shared/schemas/auth-schema";
-import { UserSchema } from "../../../shared/schemas/user-schema";
-import { safeTryAsync } from "../../../lib/safe-try";
-import { HttpError } from "../../../shared/errors/http-error";
 
 export const authRouter: FastifyPluginAsync = async (plugin) => {
   plugin.withTypeProvider<ZodTypeProvider>().post(
@@ -36,13 +21,7 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
         },
       },
     },
-    async (request, reply) => {
-      reply.send(
-        RegisterResponseSchema.parse(
-          await AuthController.register(request.body)
-        )
-      );
-    }
+    async (request) => RegisterResponseSchema.parse(await AuthController.register(request.body)),
   );
 
   plugin.withTypeProvider<ZodTypeProvider>().post(
@@ -53,11 +32,7 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
         response: { 200: RegisterResponseSchema },
       },
     },
-    async (request, reply) => {
-      reply.send(
-        RegisterResponseSchema.parse(await AuthController.login(request.body))
-      );
-    }
+    async (request) => RegisterResponseSchema.parse(await AuthController.login(request.body)),
   );
 
   plugin.withTypeProvider<ZodTypeProvider>().get(
@@ -65,49 +40,17 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
     {
       schema: {
         response: {
-          200: UserSchema,
-          503: GenericErrorSchema,
+          200: RegisterResponseSchema,
         },
       },
     },
-    async (request, reply) => {
-      return reply.send(
-        UserSchema.parse(
-          await AuthController.verifySessionToken(request.headers.authorization)
-        )
-      );
-    }
+    async (request) => RegisterResponseSchema.parse(await AuthController.verifySessionToken(request.headers.authorization)),
   );
 
   plugin
     .withTypeProvider<ZodTypeProvider>()
-    .get(
-      "/google/login",
-      { schema: { response: { 200: GoogleLoginResponseSchema } } },
-      async (request, reply) => {
-        const state = generateState();
-        const codeVerifier = generateCodeVerifier();
-
-        const authorizationUrl = await google.createAuthorizationURL(
-          state,
-          codeVerifier,
-          {
-            scopes: ["profile", "email"],
-          }
-        );
-
-        /* reply.setCookie("google_oauth_code_verifier", codeVerifier, {
-          path: "/",
-          httpOnly: true,
-        }); */
-
-        reply.send(
-          GoogleLoginResponseSchema.parse({
-            authorizationUrl: authorizationUrl.toString(),
-            codeVerifier,
-          })
-        );
-      }
+    .get("/google/login", { schema: { response: { 200: GoogleLoginResponseSchema } } }, async () =>
+      GoogleLoginResponseSchema.parse(await GoogleOauthController.createAuthroizationUrl()),
     );
 
   plugin.withTypeProvider<ZodTypeProvider>().get(
@@ -116,81 +59,16 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
       schema: {
         querystring: GoogleCallbackSearchSchema,
         response: {
-          401: GenericErrorSchema,
-          200: GoogleCallbackResponseSchema,
+          200: RegisterResponseSchema,
         },
       },
     },
-    async (request, reply) => {
-      console.log("entered");
-
-      const { code } = request.query;
-      console.log("code", code);
-
-      /*       const codeVerifier = request.cookies["google_oauth_code_verifier"]!;
-       */
-
-      const authorizationHeader = request.headers.authorization as string;
-      console.log("authorizationHeader", authorizationHeader);
-
-      const codeVerifier = auth.readBearerToken(authorizationHeader);
-      console.log("codeVerifier", codeVerifier);
-      if (!codeVerifier) {
-        return reply.status(401).send({ message: "Invalid code verifier" });
-      }
-      const tokens = await google.validateAuthorizationCode(code, codeVerifier);
-      console.log("tokens", tokens);
-
-      const googleUserResponse = await ofetch(
-        "https://www.googleapis.com/oauth2/v3/userinfo",
-        {
-          params: {
-            access_token: tokens.accessToken,
-          },
-        }
-      );
-
-      const googleUser = GoogleCallbackUserSchema.parse(googleUserResponse);
-
-      console.log("googleUser", googleUser);
-
-      if (!googleUser.email_verified)
-        return reply.status(401).send({ message: "Please verify your email" });
-
-      const existingUser = await prisma.user.findFirst({
-        where: { email: googleUser.email },
-        select: { id: true },
-      });
-
-      console.log("existingUser", existingUser);
-
-      const createSessionTokenByUserId = async (userId: string) => {
-        const existingSessions = await auth.getUserSessions(userId);
-        const session =
-          existingSessions.length > 0
-            ? existingSessions[0]
-            : await auth.createSession(userId, {});
-
-        return createJWT(
-          "HS256",
-          new TextEncoder().encode(process.env.JWT_SECRET),
-          { sessionId: session.id }
-        );
-      };
-
-      if (existingUser) {
-        const token = await createSessionTokenByUserId(existingUser.id);
-        return reply.send(GoogleCallbackResponseSchema.parse({ token }));
-      }
-
-      const userId = generateIdFromEntropySize(10);
-
-      await prisma.user.create({
-        data: { id: userId, email: googleUser.email },
-      });
-
-      const token = await createSessionTokenByUserId(userId);
-      reply.send(GoogleCallbackResponseSchema.parse({ token }));
-    }
+    async (request) =>
+      RegisterResponseSchema.parse(
+        await GoogleOauthController.login({
+          code: request.query.code,
+          codeVerifierAuthorizationHeader: request.headers.authorization,
+        }),
+      ),
   );
 };

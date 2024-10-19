@@ -8,9 +8,7 @@ type AnyError =
       error: unknown;
     };
 
-export const safeTryAsync = async <T>(
-  promise: () => Promise<T>
-): Promise<[T, null] | [null, AnyError]> => {
+export const safeTryAsync = async <T>(promise: () => Promise<T>): Promise<[T, null] | [null, AnyError]> => {
   try {
     const data = await promise();
     return [data, null];

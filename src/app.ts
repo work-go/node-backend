@@ -7,10 +7,7 @@ import {
   serializerCompiler,
   validatorCompiler,
 } from "fastify-type-provider-zod";
-import {
-  mapPrismaErrorToErrorMessages,
-  mapZodIssuesToErrorMessages,
-} from "./lib/error-handling";
+import { mapPrismaErrorToErrorMessages, mapZodIssuesToErrorMessages } from "./lib/error-handling";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUI from "@fastify/swagger-ui";
@@ -35,9 +32,7 @@ const bootstrap = async () => {
       if (hasZodFastifySchemaValidationErrors(err)) {
         return reply.code(400).send({
           message: "Invalid request",
-          details: mapZodIssuesToErrorMessages(
-            err.validation.map((e) => e.params.issue)
-          ),
+          details: mapZodIssuesToErrorMessages(err.validation.map((e) => e.params.issue)),
         });
       }
 
@@ -105,11 +100,7 @@ const bootstrap = async () => {
     const dest = await app.listen({ host: "0.0.0.0", port });
     console.log(`✅ Server listing on ${dest}`);
   } catch (error) {
-    console.log(
-      `❗ Failed to start server: ${
-        error instanceof Error ? error.message : "Uknown error occured"
-      }`
-    );
+    console.log(`❗ Failed to start server: ${error instanceof Error ? error.message : "Uknown error occured"}`);
   }
 };
 
