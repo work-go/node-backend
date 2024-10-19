@@ -1,9 +1,9 @@
-export type ErrorStatusCodes = 200 | 401 | 403 | 404 | 500;
+export type ErrorStatusCodes = 200 | 400 | 401 | 403 | 404 | 500;
 
 export class HttpError extends Error {
   constructor(
     public message: string,
-    public meta: { cause?: string; statusCode: ErrorStatusCodes },
+    public statusCode: ErrorStatusCodes,
   ) {
     super(message);
     this.name = "HttpError";

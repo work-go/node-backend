@@ -1,12 +1,11 @@
-import { z } from "zod";
-import { prisma } from "../lib/prisma";
 import { hash, verify } from "@node-rs/argon2";
-import { auth } from "../lib/auth";
 import { generateIdFromEntropySize } from "lucia";
+import { z } from "zod";
+import { auth } from "../lib/auth";
 import { createSessionJwt, validateSessionJwt } from "../lib/jwt";
-import { safeTryAsync } from "../lib/safe-try";
+import { prisma } from "../lib/prisma";
+import { AuthenticationError } from "../shared/errors/authentication-error";
 import { LoginSchema, RegisterSchema } from "../shared/schemas/auth-schema";
-import { HttpError } from "../shared/errors/http-error";
 
 export interface SessionJwt {
   sessionId: string;
@@ -29,8 +28,6 @@ export class AuthController {
       timeCost: 2,
       outputLen: 32,
       parallelism: 1,
-    }).catch((error) => {
-      throw new HttpError(error instanceof Error ? error.message : "Unable to store password", { statusCode: 401 });
     });
 
     const userId = generateIdFromEntropySize(10);
@@ -62,7 +59,7 @@ export class AuthController {
       parallelism: 1,
     });
 
-    if (!isValidPassword) throw new HttpError("Invalid email or password", { statusCode: 401 });
+    if (!isValidPassword) throw new AuthenticationError("Invalid email or password");
 
     const sessionToken = await AuthUtils.createSessionToken(user.id);
 
@@ -73,46 +70,33 @@ export class AuthController {
   }
 
   public static async verifySessionToken(bearerSessionToken: string | string[] | undefined) {
-    if (typeof bearerSessionToken !== "string")
-      throw new HttpError("Please authenticate yourself", {
-        statusCode: 401,
-      });
+    const authenticationError = new AuthenticationError("Please authenticate yourself");
+
+    if (typeof bearerSessionToken !== "string") throw authenticationError;
 
     const sessionToken = auth.readBearerToken(bearerSessionToken);
 
-    if (!sessionToken)
-      throw new HttpError("Please authenticate yourself", {
-        statusCode: 401,
-      });
+    if (!sessionToken) throw authenticationError;
 
     const { payload } = await validateSessionJwt(sessionToken).catch((error) => {
-      throw new HttpError(error instanceof Error ? error.message : "Please authenticate yourself", { statusCode: 401 });
+      throw authenticationError;
     });
 
     const sessionId = (payload as SessionJwt).sessionId;
 
-    if (!sessionId)
-      throw new HttpError("Please authenticate yourself", {
-        statusCode: 401,
-      });
+    if (!sessionId) throw authenticationError;
 
-    const { user: sessionUser } = await auth.validateSession(sessionId).catch((error) => {
-      throw new HttpError(error instanceof Error ? error.message : "Please authenticate yourself", { statusCode: 401 });
+    const { user: sessionUser } = await auth.validateSession(sessionId).catch(() => {
+      throw authenticationError;
     });
 
-    if (!sessionUser)
-      throw new HttpError("Please authenticate yourself", {
-        statusCode: 401,
-      });
+    if (!sessionUser) throw authenticationError;
 
     const user = await prisma.user.findFirst({
       where: { email: sessionUser.email },
     });
 
-    if (!user)
-      throw new HttpError("Please authenticate yourself", {
-        statusCode: 401,
-      });
+    if (!user) throw authenticationError;
 
     return { user, sessionToken };
   }

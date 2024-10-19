@@ -1,4 +1,4 @@
-import fastify from "fastify";
+import fastify, { FastifyError } from "fastify";
 import { authRouter } from "./routes/v1/public-routes/auth-route";
 import {
   hasZodFastifySchemaValidationErrors,
@@ -14,8 +14,8 @@ import fastifySwaggerUI from "@fastify/swagger-ui";
 import fastifyCors from "@fastify/cors";
 import { prisma } from "./lib/prisma";
 import { env } from "./lib/env";
-import { HttpError } from "./shared/errors/http-error";
-import { HttpInputError } from "./shared/errors/http-input-error";
+import { ValidationError } from "./shared/errors/validation-error";
+import { ServerError } from "./shared/errors/server-error.";
 
 const port = env.PORT;
 
@@ -28,42 +28,21 @@ const bootstrap = async () => {
     app.setValidatorCompiler(validatorCompiler);
     app.setSerializerCompiler(serializerCompiler);
 
-    app.setErrorHandler((err, req, reply) => {
-      if (hasZodFastifySchemaValidationErrors(err)) {
-        return reply.code(400).send({
-          message: "Invalid request",
-          details: mapZodIssuesToErrorMessages(err.validation.map((e) => e.params.issue)),
-        });
-      }
+    app.setErrorHandler((fastifyError, req, reply) => {
+      let error: FastifyError | ValidationError | ServerError = fastifyError;
 
-      if (isResponseSerializationError(err)) {
-        return reply.code(500).send({
-          message: "Invalid response",
-          details: mapZodIssuesToErrorMessages(err.cause.issues),
-        });
-      }
+      if (hasZodFastifySchemaValidationErrors(fastifyError))
+        error = new ValidationError(
+          "Bad request", // TODO: Add dynamic message for every route
+          mapZodIssuesToErrorMessages(fastifyError.validation.map((e) => e.params.issue)),
+        );
 
-      if (err instanceof PrismaClientKnownRequestError)
-        return reply.code(400).send({
-          message: "Invalid request",
-          details: mapPrismaErrorToErrorMessages(err),
-        });
+      if (fastifyError instanceof PrismaClientKnownRequestError)
+        error = new ValidationError("Bad request", mapPrismaErrorToErrorMessages(fastifyError));
 
-      if (err instanceof HttpError)
-        return reply.code(err.meta.statusCode).send({
-          message: err.message,
-        });
+      if (isResponseSerializationError(fastifyError)) error = new ServerError("Response schema parsing failed");
 
-      if (err instanceof HttpInputError)
-        return reply.code(err.meta.statusCode).send({
-          message: err.message,
-          details: err.meta.details,
-        });
-
-      return reply.code(500).send({
-        message: "Internal server error",
-        error: err,
-      });
+      return reply.code(error.statusCode || 500).send(error);
     });
 
     app.register(fastifyCors, {
