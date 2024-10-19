@@ -12,8 +12,9 @@
     "docker:dev": "NODE_ENV=development nodemon --watch './src/**/*' --ext 'ts' --exec 'npm run compile'",
     "build": "NODE_ENV=development docker-compose build --no-cache",
     "compile": "tsx src/app.ts",
-    "gen-types": "tsx scripts/generate-types.ts",
-    "format": "prettier . --write"
+    "sync": "tsx scripts/sync-shared.ts",
+    "format": "prettier . --write",
+    "gen:random-string": "tsx scripts/generate-random-string.ts"
   },
   "keywords": [],
   "author": "",
