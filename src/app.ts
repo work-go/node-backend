@@ -12,7 +12,6 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUI from "@fastify/swagger-ui";
 import fastifyCors from "@fastify/cors";
-import { prisma } from "./lib/prisma";
 import { env } from "./lib/env";
 import { ValidationError } from "./shared/errors/validation-error";
 import { ServerError } from "./shared/errors/server-error.";
@@ -42,7 +41,19 @@ const bootstrap = async () => {
 
       if (isResponseSerializationError(fastifyError)) error = new ServerError("Response schema parsing failed");
 
-      return reply.code(error.statusCode || 500).send(error);
+      let resp: any = {
+        name: "Error",
+        message: "Something went wrong",
+        stack: env.NODE_ENV === "development" ? error.stack : undefined,
+      };
+
+      if (error instanceof ServerError)
+        resp = { name: error.name, message: error.message, stack: env.NODE_ENV === "development" ? error.stack : undefined };
+      else if (error instanceof ValidationError) resp = { name: error.name, message: error.message, details: error.details };
+      else if (error instanceof Error)
+        resp = { name: error.name, message: error.name, stack: env.NODE_ENV === "development" ? error.stack : undefined };
+
+      return reply.code(error.statusCode || 500).send(resp);
     });
 
     app.register(fastifyCors, {

@@ -6,11 +6,14 @@ import { GoogleCallbackUserSchema } from "../shared/schemas/auth-schema";
 import { prisma } from "../lib/prisma";
 import { createSessionJwt } from "../lib/jwt";
 import { generateIdFromEntropySize } from "lucia";
+import { AuthenticationError } from "../shared/errors/authentication-error";
 
 export class GoogleOauthController {
   public static async createAuthroizationUrl() {
     const state = generateState();
     const codeVerifier = generateCodeVerifier();
+
+    console.log("generated code verifier", codeVerifier);
 
     const authorizationUrl = await google.createAuthorizationURL(state, codeVerifier, {
       scopes: ["profile", "email"],
@@ -26,38 +29,37 @@ export class GoogleOauthController {
     code: string;
     codeVerifierAuthorizationHeader: string | string[] | undefined;
   }) {
-    if (typeof codeVerifierAuthorizationHeader !== "string") throw new HttpError("Code verifier not found", { statusCode: 401 });
+    if (typeof codeVerifierAuthorizationHeader !== "string") throw new AuthenticationError("Code verifier not found");
 
     const codeVerifier = auth.readBearerToken(codeVerifierAuthorizationHeader);
 
-    if (!codeVerifier) throw new HttpError("Code verifier not found", { statusCode: 401 });
+    console.log("generated code verifier", codeVerifier);
+    console.log("code", code);
+
+    if (!codeVerifier) throw new AuthenticationError("Code verifier not found");
 
     const tokens = await google.validateAuthorizationCode(code, codeVerifier).catch(() => {
-      throw new HttpError("Unable to authenticate Google Profile", {
-        statusCode: 401,
-      });
+      throw new AuthenticationError("Unable to authenticate Google Profile");
     });
+
+    console.log("tokens");
 
     const googleUserResponse = await ofetch("https://www.googleapis.com/oauth2/v3/userinfo", {
       params: {
         access_token: tokens.accessToken,
       },
     }).catch(() => {
-      throw new HttpError("Unable to authenticate Google Profile", {
-        statusCode: 401,
-      });
+      throw new AuthenticationError("Unable to authenticate Google Profile");
     });
+
+    console.log("googleUserResponse", googleUserResponse);
 
     const googleUser = GoogleCallbackUserSchema.parse(googleUserResponse);
 
-    if (!googleUser.email_verified)
-      throw new HttpError("Unable to authenticate Google Profile", {
-        statusCode: 401,
-      });
+    if (!googleUser.email_verified) throw new AuthenticationError("Unable to authenticate Google Profile");
 
     const existingUser = await prisma.user.findFirst({
       where: { email: googleUser.email },
-      select: { id: true },
     });
 
     const createSessionTokenByUserId = async (userId: string) => {
@@ -68,8 +70,8 @@ export class GoogleOauthController {
     };
 
     if (existingUser) {
-      const token = await createSessionTokenByUserId(existingUser.id);
-      return { user: existingUser, token };
+      const sessionToken = await createSessionTokenByUserId(existingUser.id);
+      return { user: existingUser, sessionToken };
     }
 
     const userId = generateIdFromEntropySize(10);
@@ -78,7 +80,7 @@ export class GoogleOauthController {
       data: { id: userId, email: googleUser.email },
     });
 
-    const token = await createSessionTokenByUserId(userId);
-    return { user, token };
+    const sessionToken = await createSessionTokenByUserId(userId);
+    return { user, sessionToken };
   }
 }
