@@ -8,14 +8,11 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "NODE_ENV=development docker-compose up && nodemon --watch './src/schemas/shared/**/*' --ext 'ts' --exec 'npm run gen-types'",
-    "docker:dev": "NODE_ENV=development nodemon --watch './src/**/*' --ext 'ts' --exec 'npm run compile'",
+    "dev": "NODE_ENV=development docker-compose up",
+    "docker:dev": "NODE_ENV=development nodemon --watch './src/**/*' --ext 'ts' --ignore './src/shared/generated/**/*' --exec 'npm run compile'",
     "build": "NODE_ENV=development docker-compose build --no-cache",
     "compile": "tsx src/app.ts",
-    "sync": "tsx scripts/sync-shared.ts",
-    "gen:openapi-specs": "tsx src/generate-openapi-specs.ts",
-    "format": "prettier . --write",
-    "gen:random-string": "tsx scripts/generate-random-string.ts"
+    "sync": "COMPILE_OPENAPI_SPECS=true NODE_ENV=development npm run compile && tsx scripts/sync-shared.ts"
   },
   "keywords": [],
   "author": "",
@@ -46,6 +43,7 @@
     "fastify-type-provider-zod": "^4.0.2",
     "lucia": "^3.2.0",
     "ofetch": "^1.4.1",
+    "openapi-typescript": "^7.4.1",
     "oslo": "^1.2.1",
     "zod": "^3.23.8"
   }

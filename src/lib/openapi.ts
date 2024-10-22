@@ -3,8 +3,9 @@ import fastifySwaggerUi from "@fastify/swagger-ui";
 import { FastifyPluginAsync } from "fastify";
 import fastifyPlugin from "fastify-plugin";
 import { jsonSchemaTransform } from "fastify-type-provider-zod";
-import { writeFileSync } from "fs";
+import { writeFile, writeFileSync } from "fs";
 import path from "path";
+import openapiTS, { astToString } from "openapi-typescript";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -29,14 +30,13 @@ const plugin: FastifyPluginAsync = async (app) => {
     routePrefix: "/documentation",
   });
 
-  app.decorate(
-    "generateClientTypes",
-    () => {
-      const specs = app.swagger({ yaml: true });
-      writeFileSync(path.resolve(".", "openapi-specs.yaml"), specs);
-    },
-    [],
-  );
+  app.decorate("generateClientTypes", async () => {
+    const specs = app.swagger({ yaml: true });
+    writeFile(path.resolve("./src/shared/generated", "openapi-specs.yml"), specs, async () => {
+      const ast = await openapiTS(new URL(path.resolve("./src/shared/generated", "openapi-specs.yml"), import.meta.url));
+      writeFile(path.resolve("./src/shared/generated", "api-types.ts"), astToString(ast), () => {});
+    });
+  });
 };
 
 export const openApiPlugin = fastifyPlugin(plugin, {

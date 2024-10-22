@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
-    NODE_ENV: z.enum(["production", "development"]),
+    NODE_ENV: z.enum(["production", "development"]).optional().default("development"),
     PORT: z.string().transform(Number),
     POSTGRES_USER: z.string(),
     POSTGRES_PASSWORD: z.string(),
@@ -13,6 +13,7 @@ export const env = createEnv({
     OAUTH_GOOGLE_CLIENT_SECRET: z.string(),
     FRONTEND_URL: z.string(),
     JWT_SECRET: z.string(),
+    COMPILE_OPENAPI_SPECS: z.enum(["true", "false"]).optional(), // "true" | "false"
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

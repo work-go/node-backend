@@ -74,13 +74,17 @@ const bootstrap = async () => {
 
     await app.ready();
 
-    console.log("❕ Starting server, please wait...");
-    const dest = await app.listen({ host: "0.0.0.0", port });
-    console.log(`✅ Server listing on ${dest}`);
+    if (env.COMPILE_OPENAPI_SPECS === "true") {
+      console.log("❕ Generating OpenAPI Specs...");
+      app.generateClientTypes();
+      console.log(`✅ OpenAPI Specs generated`);
 
-    console.log("❕ Generating OpenAPI Specs...");
-    app.generateClientTypes();
-    console.log(`✅ OpenAPI Specs generated`);
+      process.exit(0);
+    } else {
+      console.log("❕ Starting server, please wait...");
+      const dest = await app.listen({ host: "0.0.0.0", port });
+      console.log(`✅ Server listing on ${dest}`);
+    }
   } catch (error) {
     console.log(`❗ Failed to start server: ${error instanceof Error ? error.message : "Uknown error occured"}`);
   }

@@ -9,6 +9,7 @@ import {
   RegisterResponseSchema,
   RegisterSchema,
 } from "../../../shared/schemas/auth-schema";
+import { z } from "zod";
 
 export const authRouter: FastifyPluginAsync = async (plugin) => {
   plugin.withTypeProvider<ZodTypeProvider>().post(
@@ -21,7 +22,7 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
         },
       },
     },
-    async (request) => RegisterResponseSchema.parse(await AuthController.register(request.body)),
+    async (request) => AuthController.register(request.body),
   );
 
   plugin.withTypeProvider<ZodTypeProvider>().post(
@@ -32,7 +33,7 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
         response: { 200: RegisterResponseSchema },
       },
     },
-    async (request) => RegisterResponseSchema.parse(await AuthController.login(request.body)),
+    async (request) => AuthController.login(request.body),
   );
 
   plugin.withTypeProvider<ZodTypeProvider>().get(
@@ -42,15 +43,16 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
         response: {
           200: RegisterResponseSchema,
         },
+        headers: z.object({ authorization: z.string() }),
       },
     },
-    async (request) => RegisterResponseSchema.parse(await AuthController.verifySessionToken(request.headers.authorization)),
+    async (request) => AuthController.verifySessionToken(request.headers.authorization),
   );
 
   plugin
     .withTypeProvider<ZodTypeProvider>()
     .get("/google/login", { schema: { response: { 200: GoogleLoginResponseSchema } } }, async () =>
-      GoogleLoginResponseSchema.parse(await GoogleOauthController.createAuthroizationUrl()),
+      GoogleOauthController.createAuthroizationUrl(),
     );
 
   plugin.withTypeProvider<ZodTypeProvider>().get(
@@ -64,11 +66,9 @@ export const authRouter: FastifyPluginAsync = async (plugin) => {
       },
     },
     async (request) =>
-      RegisterResponseSchema.parse(
-        await GoogleOauthController.login({
-          code: request.query.code,
-          codeVerifierAuthorizationHeader: request.headers.authorization,
-        }),
-      ),
+      GoogleOauthController.login({
+        code: request.query.code,
+        codeVerifierAuthorizationHeader: request.headers.authorization,
+      }),
   );
 };
