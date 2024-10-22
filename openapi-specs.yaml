@@ -1,0 +1,166 @@
+openapi: 3.0.3
+info:
+  title: Work Go API
+  description: ""
+  version: 1.0.0
+components:
+  schemas: {}
+paths:
+  /v1/auth/register:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  minLength: 1
+                  format: email
+                password:
+                  type: string
+                passwordConfirm:
+                  type: string
+              required:
+                - email
+                - password
+                - passwordConfirm
+              additionalProperties: false
+        required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                    required:
+                      - email
+                    additionalProperties: false
+                  sessionToken:
+                    type: string
+                required:
+                  - user
+                  - sessionToken
+                additionalProperties: false
+  /v1/auth/login:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  minLength: 1
+                  format: email
+                password:
+                  type: string
+              required:
+                - email
+                - password
+              additionalProperties: false
+        required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                    required:
+                      - email
+                    additionalProperties: false
+                  sessionToken:
+                    type: string
+                required:
+                  - user
+                  - sessionToken
+                additionalProperties: false
+  /v1/auth/verify:
+    get:
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                    required:
+                      - email
+                    additionalProperties: false
+                  sessionToken:
+                    type: string
+                required:
+                  - user
+                  - sessionToken
+                additionalProperties: false
+  /v1/auth/google/login:
+    get:
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authorizationUrl:
+                    type: string
+                  codeVerifier:
+                    type: string
+                required:
+                  - authorizationUrl
+                  - codeVerifier
+                additionalProperties: false
+  /v1/auth/google/callback:
+    get:
+      parameters:
+        - schema:
+            type: string
+          in: query
+          name: code
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                    required:
+                      - email
+                    additionalProperties: false
+                  sessionToken:
+                    type: string
+                required:
+                  - user
+                  - sessionToken
+                additionalProperties: false
+servers: []

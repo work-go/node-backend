@@ -13,6 +13,7 @@
     "build": "NODE_ENV=development docker-compose build --no-cache",
     "compile": "tsx src/app.ts",
     "sync": "tsx scripts/sync-shared.ts",
+    "gen:openapi-specs": "tsx src/generate-openapi-specs.ts",
     "format": "prettier . --write",
     "gen:random-string": "tsx scripts/generate-random-string.ts"
   },
@@ -24,6 +25,7 @@
     "@types/node": "^22.7.4",
     "@types/pg": "^8.11.10",
     "concurrently": "^9.0.1",
+    "fastify-cli": "^7.0.1",
     "nodemon": "^3.1.7",
     "prettier": "^3.3.3",
     "prisma": "^5.20.0",
@@ -40,6 +42,7 @@
     "@t3-oss/env-core": "^0.11.1",
     "arctic": "^1.9.2",
     "fastify": "^5.0.0",
+    "fastify-plugin": "^5.0.1",
     "fastify-type-provider-zod": "^4.0.2",
     "lucia": "^3.2.0",
     "ofetch": "^1.4.1",

@@ -10,11 +10,14 @@ import {
 import { mapPrismaErrorToErrorMessages, mapZodIssuesToErrorMessages } from "./lib/error-handling";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import fastifySwagger from "@fastify/swagger";
-import fastifySwaggerUI from "@fastify/swagger-ui";
 import fastifyCors from "@fastify/cors";
 import { env } from "./lib/env";
 import { ValidationError } from "./shared/errors/validation-error";
 import { ServerError } from "./shared/errors/server-error.";
+import fastifySwaggerUi from "@fastify/swagger-ui";
+import { writeFileSync } from "fs";
+import path from "path";
+import { openApiPlugin } from "./lib/openapi";
 
 const port = env.PORT;
 
@@ -61,21 +64,7 @@ const bootstrap = async () => {
       credentials: true,
     });
 
-    app.register(fastifySwagger, {
-      openapi: {
-        info: {
-          title: "Work Go API",
-          description: "",
-          version: "1.0.0",
-        },
-        servers: [],
-      },
-      transform: jsonSchemaTransform,
-    });
-
-    app.register(fastifySwaggerUI, {
-      routePrefix: "/documentation",
-    });
+    app.register(openApiPlugin);
 
     app.get("/", (request, reply) => {
       reply.send(`Server running at port ${port}`);
@@ -84,9 +73,14 @@ const bootstrap = async () => {
     app.register(authRouter, { prefix: "/v1/auth" });
 
     await app.ready();
+
     console.log("❕ Starting server, please wait...");
     const dest = await app.listen({ host: "0.0.0.0", port });
     console.log(`✅ Server listing on ${dest}`);
+
+    console.log("❕ Generating OpenAPI Specs...");
+    app.generateClientTypes();
+    console.log(`✅ OpenAPI Specs generated`);
   } catch (error) {
     console.log(`❗ Failed to start server: ${error instanceof Error ? error.message : "Uknown error occured"}`);
   }
