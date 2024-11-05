@@ -8,11 +8,12 @@ datasource db {
 }
 
 model User {
-  id           String    @id
-  email        String    @unique
-  createdAt    DateTime  @default(now())
+  id           String       @id
+  email        String       @unique
+  createdAt    DateTime     @default(now())
   passwordHash String?
   sessions     Session[]
+  JobVacancy   JobVacancy[]
 }
 
 model Session {
@@ -20,4 +21,47 @@ model Session {
   userId    String
   expiresAt DateTime
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum JobType {
+  ONSITE
+  HYBRID
+  REMOTE
+}
+
+enum JobSchedule {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+}
+
+model JobVacancy {
+  id                 String      @id
+  title              String
+  location           String
+  jobType            JobType
+  jobSchedule        JobSchedule
+  department         String
+  skills             String[]
+  labels             String[]
+  salary             String
+  jobDescription     String      @db.Text
+  screeningQuestions String
+  user               User        @relation(fields: [userId], references: [id])
+  userId             String
+  url                String
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  postedAt           DateTime
+  expiresAt          DateTime
+  workspace          Workspace[]
+  isTrashed          Boolean     @default(false)
+}
+
+model Workspace {
+  id          String       @id
+  name        String
+  description String
+  jobVacancy  JobVacancy[]
 }
