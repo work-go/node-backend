@@ -13,7 +13,7 @@ model User {
   createdAt    DateTime     @default(now())
   passwordHash String?
   sessions     Session[]
-  JobVacancy   JobVacancy[]
+  jobVacancy   JobVacancy[]
 }
 
 model Session {
@@ -50,12 +50,12 @@ model JobVacancy {
   screeningQuestions String
   user               User        @relation(fields: [userId], references: [id])
   userId             String
-  url                String
+  externalPortalUrl  String
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
-  postedAt           DateTime
   expiresAt          DateTime
-  workspace          Workspace[]
+  workspace          Workspace   @relation(fields: [workspaceId], references: [id])
+  workspaceId        String
   isTrashed          Boolean     @default(false)
 }
 
