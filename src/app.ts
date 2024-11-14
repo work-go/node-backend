@@ -10,14 +10,12 @@ import {
 import { mapPrismaErrorToErrorMessages, mapZodIssuesToErrorMessages } from "./lib/error-handling";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import fastifySwagger from "@fastify/swagger";
+import fastifySwaggerUI from "@fastify/swagger-ui";
 import fastifyCors from "@fastify/cors";
 import { env } from "./lib/env";
 import { ValidationError } from "./shared/errors/validation-error";
 import { ServerError } from "./shared/errors/server-error.";
-import fastifySwaggerUi from "@fastify/swagger-ui";
-import { writeFileSync } from "fs";
-import path from "path";
-import { openApiPlugin } from "./lib/openapi";
+import { protectedRouter } from "./routes/v1/protected-routes/protected-route";
 
 const port = env.PORT;
 
@@ -64,7 +62,29 @@ const bootstrap = async () => {
       credentials: true,
     });
 
-    app.register(openApiPlugin);
+    app.register(fastifySwagger, {
+      openapi: {
+        info: {
+          title: "Work Go API",
+          description: "",
+          version: "1.0.0",
+        },
+        servers: [],
+      },
+      transform: jsonSchemaTransform,
+    });
+
+    app.register(fastifySwaggerUI, {
+      routePrefix: "/documentation",
+      uiConfig: {
+        // Auto-inject the hard-coded token into Authorization header
+        requestInterceptor: (request) => {
+          request.headers.authorization =
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uSWQiOiJlN2V2MnFrY28zenZjaWI2In0.XRMnycxdgRjF06u1m7nDr49AXEeSWHM-MTUnwnDjs5c";
+          return request;
+        },
+      },
+    });
 
     app.get("/", (request, reply) => {
       reply.send(`Server running at port ${port}`);
@@ -72,19 +92,11 @@ const bootstrap = async () => {
 
     app.register(authRouter, { prefix: "/v1/auth" });
 
+    app.register(protectedRouter, { prefix: "/v1" });
     await app.ready();
-
-    if (env.COMPILE_OPENAPI_SPECS === "true") {
-      console.log("❕ Generating OpenAPI Specs...");
-      app.generateClientTypes();
-      console.log(`✅ OpenAPI Specs generated`);
-
-      process.exit(0);
-    } else {
-      console.log("❕ Starting server, please wait...");
-      const dest = await app.listen({ host: "0.0.0.0", port });
-      console.log(`✅ Server listing on ${dest}`);
-    }
+    console.log("❕ Starting server, please wait...");
+    const dest = await app.listen({ host: "0.0.0.0", port });
+    console.log(`✅ Server listing on ${dest}`);
   } catch (error) {
     console.log(`❗ Failed to start server: ${error instanceof Error ? error.message : "Uknown error occured"}`);
   }
